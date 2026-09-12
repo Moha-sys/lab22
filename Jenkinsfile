@@ -1,57 +1,74 @@
-pipeline {
+pipeline{
     agent any
-
-    environment {
-        // Fetches username and password/token from Jenkins credentials store (Credential ID: 'docker')
-        DOCKER_HUB_CREDS = credentials('docker')
-        IMAGE_NAME       = 'mohadevv/hello-app'
-        IMAGE_TAG        = "${BUILD_NUMBER}"
+    
+     environment {
+        IMAGE_NAME='hello_backend'
     }
 
-    stages {
-        stage('Build Setup') {
-            steps {
-                echo '=== Build Setup ==='
-                sh 'docker --version'
-            }
-        }
+    stages{
+        stage("checkout task3 branch"){
+            steps{
 
-        stage('Docker Build') {
-            steps {
-                echo '=== Docker Build ==='
-                sh 'docker build -t app:local .'
-            }
-        }
-
-        stage('Login & Tag') {
-            steps {
-                echo '=== Login & Tag ==='
                 sh '''
-                    echo "$DOCKER_HUB_CREDS_PSW" | docker login -u "$DOCKER_HUB_CREDS_USR" --password-stdin
-                    docker tag app:local ${IMAGE_NAME}:${IMAGE_TAG}
-                    docker tag app:local ${IMAGE_NAME}:latest
+                git checkout task3
                 '''
             }
-        }
 
-        stage('Docker Push') {
-            steps {
-                echo '=== Docker Push ==='
-                sh '''
-                    docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${IMAGE_NAME}:latest
-                '''
+        }
+        stage("login"){
+            steps{
+                
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker',
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) 
+
+                {
+                     sh '''
+                        echo "$DOCKER_PASSWORD" | docker login \
+                                            -u "$DOCKER_USERNAME" \
+                                            --password-stdin                    
+                                            
+                        '''
+                }
+
+               
             }
+         
         }
-    }
 
-    post {
-        always {
-            echo '=== Cleanup ==='
+        stage("build image"){
+            steps{
             sh '''
-                docker logout || true
-                docker rmi app:local ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest || true
+                docker build -t mostafaosmanfathi/${IMAGE_NAME}:${BUILD_NUMBER} .
+
             '''
+            }
+           
+
+        }
+        stage("push image"){
+            steps{
+            sh '''
+                docker push mostafaosmanfathi/${IMAGE_NAME}:${BUILD_NUMBER}
+
+            '''
+            } 
+
+        }
+    }
+    post{
+        always{
+            echo "========always========"
+        }
+        success{
+            echo "========pipeline executed successfully ========"
+        }
+        failure{
+            echo "========pipeline execution failed========"
         }
     }
 }
